@@ -1,0 +1,566 @@
+// ------------------------------------------
+//	GoZBrush from Maya script
+// ------------------------------------------
+
+
+// ------------------------------------------
+// Global variables.
+global string $GoZPublicPath = "C:/Users/Public/Pixologic/";
+global string $GoZAppExt = ".exe";
+global string $GoZProjectPath;
+global int $GoZDebugON = 0;
+global string $gFileBaseName = "";
+global int $gFileOccurrence = 0;
+global string $selObjects[];
+
+
+// ------------------------------------------
+// Launch an application.
+// Code is different depending on PC/Mac.
+global proc launchApp(string $path)
+{
+  // On Windows:
+  system($path);
+
+  // On MacOSX:
+  //system("open -a \""+$path+"\"");
+}
+
+
+// ------------------------------------------
+// Debug purpose...
+global proc printDebug(string $text)
+{
+  global int $GoZDebugON;
+  if ($GoZDebugON)
+  {
+    print($text+"\n");
+  }
+}
+
+// Requires the plugin gozMaya loaded.----------------  //++
+if (`pluginInfo -query -loaded -name "gozMaya"`==0){
+  loadPlugin "gozMaya"; 
+}
+
+// ------------------------------------------
+// Decompose a fileName into [$gFileBaseName][$gFileOccurrence],
+// where [$gFileBaseName] is text and $gFileOccurrence is an integer.
+// For example, decompose "myFile25" into ("myFile", 26)
+global proc decomposeFileName(string $fileName)
+{
+  global string $gFileBaseName;
+  global int $gFileOccurrence;
+
+  int $index;
+  int $count;
+  string $car;
+
+  $count = size($fileName);
+  for ($index=$count; $index>0; $index--)
+  {
+    $car = `substring $fileName $index $index`;
+    $car = `match "[0-9]" $car`;
+    if ($car == "")
+      break;
+  }
+
+  if ($index == $count)
+  {
+    $gFileBaseName = $fileName;
+    $gFileOccurrence = 0;
+  }
+  else
+  {
+    if ($index > 0)
+      $gFileBaseName = `substring $fileName 1 $index`;
+    else
+      $gFileBaseName = "";
+    $index++;
+    $car = `substring $fileName $index $count`;
+    $gFileOccurrence = $car;
+  }
+}
+
+
+// ------------------------------------------
+// Tests if a GoZ name matches an object name.
+// The test is performed using decomposition of both names(see decomposeFileName).
+// The GoZ name matches the object name if and only if:
+// 1- both names decomposition have the same base name
+// 2- the occurence of GoZ name is greater or equal to the occcurrence of object name.
+// For example, for object name "myFile25":
+// - "myFile25" and "myFile48" are valid GoZ names,
+// - "myFile24" and "toto_en_short" are NOT valid GoZ names!
+global proc int areSameNames(string $objectName, string $objectGoZName)
+{
+  string $objName = `tolower $objectName`;
+  string $gozName = `tolower $objectGoZName`;
+  if ($objName == $gozName)
+    return 1;
+  return 0;
+/*
+  global string $gFileBaseName;
+  global int $gFileOccurrence;
+
+  string $objectGoZBaseName;
+  int $objectGoZOccurrence;
+  string $objectBaseName;
+  int $objectOccurrence;
+
+  decomposeFileName($objectGoZName);
+  $objectGoZBaseName = `tolower $gFileBaseName`;
+  $objectGoZOccurrence = $gFileOccurrence;
+
+  decomposeFileName($objectName);
+  $objectBaseName = `tolower $gFileBaseName`;
+  $objectOccurrence = $gFileOccurrence;
+
+  if ($objectBaseName != $objectGoZBaseName)
+    return 0;
+  if ($objectGoZOccurrence < $objectOccurrence)
+    return 0;
+  return 1;
+*/
+}
+
+
+// ------------------------------------------
+// Simulates a sleep of some milliseconds.
+// Note: as no sleep command is available, it waits "actively" for the amout of time...
+global proc sleep(float $delayInSecond)
+{
+  float $startTime;
+  float $ellapsedTime;
+  $startTime = `timerX`;
+  $ellapsedTime = `timerX -st $ellapsedTime`;
+  while ($ellapsedTime < $delayInSecond)
+  {
+    $ellapsedTime = `timerX -st $ellapsedTime`;
+  }
+}
+
+
+// ------------------------------------------
+// Creates a new GoZ name based an an object name.
+// Creation is made using the GoZ utility "GoZMakeObjectPath",
+// which ensures that the GoZ name is unique.
+// Note: check if the GoZ name $name is unique consists on
+// checking ZTN files in "/Users/Public/Pixologic/GoZProject/default/",
+// and verify that the file $name.ztn does not exist in that folder.
+// IMPORTANT: It implies that to safely create several unique GoZ names,
+// the caller should create an empty ZTN file using the unique name it returns.
+global proc string createGoZID(string $objectName)
+{
+  global string $GoZPublicPath;
+  global string $GoZAppExt;
+
+  string $fileName;
+  string $path;
+  int $fileId;
+  float $startTime;
+  float $ellapsedTime;
+  float $delay;
+
+  $fileName = $GoZPublicPath + "GoZBrush/GoZ_ObjectPath.txt";
+  $fileId = `fopen $fileName "w"`;
+  fprint $fileId $objectName;
+  fclose $fileId;
+
+  $fileName = $GoZPublicPath + "GoZBrush/GoZMakeObjectPath" + $GoZAppExt;
+  launchApp($fileName);
+
+  $fileName = $GoZPublicPath + "GoZBrush/GoZ_ObjectPath.txt";
+  $startTime = `timerX`;
+  $ellapsedTime = `timerX -st $startTime`;
+  $delay = 0.02;
+  while ($ellapsedTime < 2.0)
+  {
+    $fileId = `fopen $fileName "r"`;
+    if ($fileId != 0)
+    {
+      $path = "";
+      $path = `fread $fileId $path`;
+      fclose $fileId;
+      if (size($path) > size($objectName))
+      {
+        string $tokens[];
+        int $tokenCount;
+        $tokenCount = `tokenize $path "/\\" $tokens`;
+/*
+        if ($tokenCount < 2)
+        {
+          printDebug("        >>>> No token found in path \"" + $path + "\" <<<<");
+          return $objectName;
+        }
+        printDebug("        >>>> " + $tokenCount + " tokens found in path \"" + $path + "\" <<<<");
+*/
+        $path = $tokens[$tokenCount-1];
+        printDebug("        >>>> Unique GoZ ID \"" + $path + "\" generated for object \"" + $objectName + "\" <<<<");
+        return $path;
+      }
+    }
+    sleep($delay);
+    $delay = 0.1;
+    $ellapsedTime = `timerX -st $startTime`;
+  }
+
+  // If here, did not manage to find a valid path.
+  // As such an error is not managed, just returns $objectName which will be overwrited.
+  printDebug("        >>>> No unique GoZ ID generated for object \"" + $objectName + "\" <<<<");
+  return $objectName;
+}
+
+
+// ------------------------------------------
+// Exports a GoZ object to ZBrush.
+global proc int exportGoZObject(int $selIndex)
+{
+  global string $GoZPublicPath;
+  global string $GoZProjectPath;
+  global string $selObjects[];
+
+  string $objectName = $selObjects[$selIndex];
+  string $maFileName;
+  string $ztnFileName;
+  string $gozName;
+  string $gozPath;
+  string $validGoZName;
+  string $fileName;
+  int $fileId;
+  printDebug("  Exporting object " + $objectName + "...");
+
+  // The object already has a GoZBrushID attribute, which contains an ID of ZTN file.
+  if (`attributeQuery -node $objectName -ex "GoZBrushID"`)
+  {
+    //select -r $objectName;
+    $gozName = getAttr($objectName + ".GoZBrushID");
+    $ztnFileName = $GoZProjectPath + $gozName + ".ztn";
+    printDebug("    Found GoZBrushID attribute = " + $gozName);
+
+    // There is an existing GoZ ID, but it does not match the object name.
+    // This can occur either after a copy or a rename of the object.
+    // In such a case, create a new GoZ ID matching the object name,
+    // and copy maps from previous ID if it still exists.
+    if (!areSameNames($objectName, $gozName))
+    {
+      // Stores previous GoZ ID.
+      string $oldGoZName = $gozName;
+
+      // Creates a new GoZ ID.
+      $gozName = createGoZID($objectName);
+
+      string $msg;
+      string $result;
+      printDebug("      GoZBrush ID is invalid: --- ObjectName = " + $objectName + "  ---  GoZBrushID = " + $oldGoZName + "  ---  free GoZBrushID = " + $gozName);
+
+      $msg = "The object \"" + $objectName + "\" is linked to GoZ mesh \"" + $oldGoZName + "\".";
+      $msg = $msg + "\nGoZ requires the same name for object and GoZ mesh.";
+      $msg = $msg + "\nWhat do you want do do?";
+      $msg = $msg + "\n\n- 'Rename' object as \"" + $oldGoZName + "\".";
+      if (!areSameNames($objectName, $gozName))
+      {
+	      $msg = $msg + "\n- 'Relink' object to existing GoZ mesh \"" + $objectName + "\".";
+	      $msg = $msg + "\n- 'Create' a new GoZ mesh \"" + $gozName + "\" for this object.";
+	      $msg = $msg + "\n   (object will be renamed to \"" + $gozName + "\".)";
+      }
+      else
+	      $msg = $msg + "\n- 'Create' a new GoZ mesh \"" + $gozName + "\" for this object.";
+      $msg = $msg + "\n- 'Cancel' GoZ export for this object.";
+      if (!areSameNames($objectName, $gozName))
+      {
+	      $result = `confirmDialog -title "GoZBrush Note:\nMaya object and GoZ mesh have different names" -message $msg
+		                             -button "Rename" -button "Relink" -button "Create" -button "Cancel"
+		                             -defaultButton "Rename" -cancelButton "Cancel" -dismissString "Rename"`;
+			}
+			else
+			{
+	      $result = `confirmDialog -title "GoZBrush Note:\nMaya object and GoZ mesh have different names" -message $msg
+		                             -button "Rename" -button "Create" -button "Cancel"
+		                             -defaultButton "Rename" -cancelButton "Cancel" -dismissString "Rename"`;
+			}
+      if ($result == "Cancel")
+      {
+        return 0;
+      }
+      else if ($result == "Rename")
+      {
+        rename $objectName $oldGoZName;
+        $selObjects[$selIndex] = $oldGoZName;
+        $objectName = $oldGoZName;
+        $gozName = $oldGoZName;
+      }
+      else if ($result == "Relink")
+      {
+	      setAttr -type "string" ($objectName + ".GoZBrushID") ($objectName);
+        $gozName = $objectName;
+      }
+      else if ($result == "Create")
+      {
+        setAttr -type "string" ($objectName + ".GoZBrushID") ($gozName);
+				if (!areSameNames($objectName, $gozName))
+				{
+			    rename $objectName $gozName;
+		      $selObjects[$selIndex] = $gozName;
+	        $objectName = $gozName;
+				}
+      }
+/*
+      setAttr -type "string" ($objectName + ".GoZBrushID") ($gozName);
+      printDebug("      GoZBrushID is not valid(object is a copy or was renamed) - new GoZBrushID created = " + $gozName);
+*/
+      // If previous ID still exists, copy maps from previous ID to new ID.
+		  if (!areSameNames($gozName, $oldGoZName))
+		  {
+		  }
+      else if (`file -q -exists $ztnFileName`)
+      {
+        printDebug("      The previous ZTN file still exists: copy the maps from previous GoZBrushID to new one!");
+        string $sourcePath;
+        string $targetPath;
+
+        // copy normal map
+        $sourcePath = $GoZProjectPath+ $oldGoZName + "_NM.tif";
+        $targetPath = $GoZProjectPath+ $gozName + "_NM.tif";
+        if (`file -q -exists $sourcePath`)
+        {
+          sysFile -copy $targetPath $sourcePath;
+        }
+
+        // copy displacement map
+        $sourcePath = $GoZProjectPath+ $oldGoZName + "_DM.tif";
+        $targetPath = $GoZProjectPath+ $gozName + "_DM.tif";
+        if (`file -q -exists $sourcePath`)
+        {
+          sysFile -copy $targetPath $sourcePath;
+        }
+
+        // copy texture map
+        $sourcePath = $GoZProjectPath+ $oldGoZName + "_TXTR.tif";
+        $targetPath = $GoZProjectPath+ $gozName + "_TXTR.tif";
+        if (`file -q -exists $sourcePath`)
+        {
+          sysFile -copy $targetPath $sourcePath;
+        }
+      } // End of if (`file -q -exists $ztnFileName`)
+
+      // Creates an empty ZTN file.
+      $ztnFileName = $GoZProjectPath + $gozName + ".ztn";
+      $fileId = `fopen $ztnFileName "w"`;
+      fclose $fileId;
+    } // End of if (!isRightGoZID($objectName, $gozName))
+
+    // If the GoZBrushID is the right one, verifies that the ZTN file still exists.
+    // If not, creates an empty one.
+    else if (!`file -q -exists $ztnFileName`)
+    {
+      // Creates an empty ZTN file.
+      $fileId = `fopen $ztnFileName "w"`;
+      fclose $fileId;
+    }
+  } // End of if (`attributeQuery -node $objectName -ex "GoZBrushID"`)
+  // The object does NOT have any GoZBrushID attribute.
+  else
+  {
+    string $objectHistory[];
+    string $historyName;
+    int	   $objectHistoryCount;
+    int	   $objectHistoryIndex;
+    printDebug("    No GoZBrushID found... search in the history for any GoZBrushID");
+
+    // Search in the object history for a GoZ object.
+    $gozName = "";
+    $objectHistory = `listHistory $objectName`;
+    $objectHistoryCount = `size($objectHistory)`;
+    for ($objectHistoryIndex=0; $objectHistoryIndex<$objectHistoryCount; $objectHistoryIndex++)
+    {
+      $historyName = $objectHistory[$objectHistoryIndex];
+      if (`attributeQuery -node $historyName -ex "GoZBrushID"`)
+      {
+        $gozName = getAttr($historyName + ".GoZBrushID");
+        $ztnFileName = $GoZProjectPath + $gozName + ".ztn";
+        if (`file -q -exists $ztnFileName`)
+        {
+          string $msg;
+          string $result;
+          printDebug("      Found a GoZ object in the history: " + $historyName + "  ---  GoZBrushID = " + $gozName);
+
+          // Found a GoZ object in the construction history: asks the user if we change the object name to GoZ one or not.
+          $msg = "The object \"" + $objectName + "\" is a descendant of \"" + $historyName + ".GoZBrushID\".";
+          $msg = $msg + "\n\nPress OK to restore the original GoZ name \"" + $gozName + "\" and send the modified mesh to ZBrush for remapping.";
+          $result = `confirmDialog -title "GoZBrush Note" -message $msg
+            -button "OK" -button "Cancel" -defaultButton "OK"
+            -cancelButton "Cancel" -dismissString "OK"`;
+          if ($result == "Cancel")
+          {
+            $gozName = "";
+            break;
+            //return 0;
+          }
+
+          // "Move" the GoZBrushID attribute from the history object to selected object,
+          // and rename the selected object to the ZTN file name.
+          // Note: compared to previous version, the history is NOT destroyed(not needed).
+          deleteAttr($historyName + ".GoZBrushID");
+          addAttr -ln "GoZBrushID" -nn "GoZBrushID" -dt "string" $objectName;
+          setAttr -type "string" ($objectName + ".GoZBrushID") ($gozName);
+          rename $objectName $gozName;
+          $selObjects[$selIndex] = $gozName;
+          $objectName = $gozName;
+          break;
+        } // End of if (`file -q -exists $ztnFileName`)
+
+        else
+        {
+          deleteAttr($objectHistory[$objectHistoryIndex] + ".GoZBrushID");
+          $gozName = "";
+        }
+      } // End of if ( `attributeQuery -node  $objectHistory[$objectHistoryIndex]  -ex  "GoZBrushID"` )
+    } // End of for ( $objectHistoryIndex=0; $objectHistoryIndex<$objectHistoryCount ; $objectHistoryIndex++)
+
+    // If no valid GoZ object was found in the history, create a new GoZ ID.
+    if ($gozName == "")
+    {
+      $gozName = createGoZID($objectName);
+
+      if (!areSameNames($objectName, $gozName))
+      {
+			  printDebug("      A GoZMesh \"" + $objectName + "\" already exist => ask the user what to do");
+	      string $msg;
+	      string $title;
+		    string $result;
+		    $msg = "This object is not linked to any GoZ mesh yet,";
+		    $msg = $msg + "\nbut there is already an existing GoZ mesh \"" + $objectName + "\".";
+	      $msg = $msg + "\nGoZ requires the same name for object and GoZ mesh.";
+	      $msg = $msg + "\nWhat do you want do do?";
+	      $msg = $msg + "\n\n- 'Relink' object to existing GoZ mesh \"" + $objectName + "\".";
+	      $msg = $msg + "\n- 'Create' a new GoZ mesh \"" + $gozName + "\" for this object.";
+	      $msg = $msg + "\n   (object will be renamed to \"" + $gozName + "\".)";
+	      $msg = $msg + "\n- 'Cancel' GoZ export for this object.";
+	      $title = "GoZBrush Note:\nCreate a GoZ mesh for the object \"" + $objectName + "\"";
+	      $result = `confirmDialog -title $title -message $msg
+		                             -button "Relink" -button "Create" -button "Cancel"
+		                             -defaultButton "Create" -cancelButton "Cancel" -dismissString "Create"`;
+	      if ($result == "Cancel")
+	      {
+		      return 0;
+		    }
+	      else if ($result == "Relink")
+		    {
+		      addAttr -ln "GoZBrushID" -nn "GoZBrushID" -dt "string" $objectName;
+			    setAttr -type "string" ($objectName + ".GoZBrushID") ($objectName);
+				  $gozName = $objectName;
+				}
+				else if ($result == "Create")
+				{
+		      addAttr -ln "GoZBrushID" -nn "GoZBrushID" -dt "string" $objectName;
+					setAttr -type "string" ($objectName + ".GoZBrushID") ($gozName);
+			    rename $objectName $gozName;
+		      $selObjects[$selIndex] = $gozName;
+	        $objectName = $gozName;
+				}
+			}
+			
+			else
+			{
+	      addAttr -ln "GoZBrushID" -nn "GoZBrushID" -dt "string" $objectName;
+				setAttr -type "string" ($objectName + ".GoZBrushID") ($gozName);
+			}
+
+      // Creates an empty ZTN file.
+      $ztnFileName = $GoZProjectPath + $gozName + ".ztn";
+      $fileId = `fopen $ztnFileName "w"`;
+      fclose $fileId;
+      printDebug("      nothing found in the history, create GoZBrushID\"" + $gozName + "\"");
+    }
+  } // End of else of if (`attributeQuery -node $objectName -ex "GoZBrushID"`)
+
+  // All is fine now regarding the GoZBrushID, next step is exporting the object to a Maya file.
+  printDebug("    Exporting object \"" + $objectName + "\" to \"" + $gozName + ".GoZ\"");
+
+  // To avoid parametric object descriptions and any other unsupported shapes, first of all delete the construction history.
+  // As a result, the object will become a basic mesh.
+  delete -ch $objectName;
+  makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 $objectName;
+  delete -ch $objectName;
+
+  // Selects only the object so that it can be exported "alone".
+  select -r $objectName;
+
+  // Then exports it to a Maya file.
+  $maFileName = $GoZProjectPath + $gozName + ".GoZ"; //$maFileName = $GoZProjectPath + $gozName + ".ma"; /////TODO eliminate the .ma   //++
+  $maGoZName = $GoZProjectPath + $gozName;
+  sysFile -delete $maFileName;
+  gozMaya -o $maGoZName;  //////file -op "v=0" -typ "mayaAscii" -es $maFileName;  //TODO: This is where the Raul's GoZMaya new Plugin is called 
+  
+  // Then reselects all the objects previously selected.
+  select -r $selObjects;
+
+  // Appends the GoZ object to the GoZ object list.
+  $gozPath = $GoZProjectPath + $gozName;
+  $fileName = $GoZPublicPath + "GoZBrush/GoZ_ObjectList.txt";
+  $fileId = `fopen $fileName "a"`;
+  fprint $fileId $gozPath;
+  fprint $fileId "\n";
+  fclose $fileId;
+  printDebug("    Object path is \"" + $gozPath + "\"");
+
+  return 1;
+}
+
+
+// ------------------------------------------
+// Export one or several meshes to ZBrush...
+printDebug("GoZ Maya >>> ZBrush");
+
+// Misc local initializations.
+string $fileName;
+int $selObjectCount;
+int $fileId;
+int $exportCount;
+
+// Gets the path where to export Maya files.
+$fileName = $GoZPublicPath + "GoZBrush/GoZ_ProjectPath.txt";
+$fileId = `fopen $fileName "r"`;
+$GoZProjectPath = `fread $fileId $GoZProjectPath`;
+fclose $fileId;
+
+// Set the object selection mode and get all selected objects.
+SelectTool;
+changeSelectMode -component;
+changeSelectMode -object;
+$selObjects = `ls -selection -shortNames -dagObjects -transforms`; // -tail 1`;
+$selObjectCount = `size($selObjects)`;
+
+// Clears the GoZ object list.
+$fileName = $GoZPublicPath + "GoZBrush/GoZ_ObjectList.txt";
+$fileId = `fopen $fileName "w"`;
+fclose $fileId;
+
+// Exports all selected objects.
+printDebug("GoZ start exporting " + $selObjectCount + " selected objects:");
+$exportCount = 0;
+for ($selObjectIndex=0; $selObjectIndex<$selObjectCount; $selObjectIndex++)
+  $exportCount += exportGoZObject($selObjectIndex);
+printDebug($exportCount + " GoZ objects were exported!");
+
+// If no object was exported, shows up a dialog to ask the user to select a mesh to GoZBrush.
+if ($exportCount == 0)
+{
+  confirmDialog -title "GoZBrush Note" -message "No mesh was exported!\nPlease, select a mesh to GoZBrush."  -button "OK"   -defaultButton "OK";
+}
+
+// Otherwise(at least 1 object was exported), GoZee to ZBrush.
+else
+{
+  // Sets the right application id(Maya).
+  $fileName = $GoZPublicPath + "GoZBrush/GoZ_Application.txt";
+  $fileId = `fopen $fileName "w"`;
+  fprint $fileId "Maya";
+  fclose $fileId;
+
+  // Launch GoZBrush application.
+  $fileName = $GoZPublicPath + "GoZBrush/GoZBrushFromApp" + $GoZAppExt;
+  launchApp($fileName);
+}
+

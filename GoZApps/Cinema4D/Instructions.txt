@@ -1,0 +1,11 @@
+Installing GoZ in Cinema 4D
+
+
+In Cinema 4D...
+
+1. Open the Script Manager. ( Windows menu, Script Manager option).
+2. In the Script Manager Window, open the File menu and select "Import...".
+3. Open the C:\Users\Public\Pixologic\GoZBrush\GoZApps\Cinema4D\GoZBrushFromCinema4D.csc file.
+4. If done correctly, you'll see a GoZ icon in the scripts manager window. Drag this icon to your preferred location within the Cinema 4D interface.
+
+You may now select a 3D mesh in Cinema4D and click the GoZ button to send it to ZBrush.

@@ -1,0 +1,29 @@
+global proc shelf_GoZBrush () {
+    global string $gBuffStr;
+    global string $gBuffStr0;
+    global string $gBuffStr1;
+
+
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 34
+        -height 34
+        -manage 1
+        -visible 1
+        -preventOverride 0
+        -align "center" 
+        -label "GoZ" 
+        -labelOffset 0
+        -font "tinyBoldLabelFont" 
+        -image "C:/Users/Public/Pixologic/GoZApps/Maya/GoZBrush.xpm" 
+        -image1 "C:/Users/Public/Pixologic/GoZApps/Maya/GoZBrush.xpm" 
+        -style "iconOnly" 
+        -marginWidth 1
+        -marginHeight 1
+        -command "source \"C:/Users/Public/Pixologic/GoZApps/Maya/GoZBrushFromMaya.mel\"\r"
+        -sourceType "mel" 
+        -actionIsSubstitute 0
+    ;
+
+} 

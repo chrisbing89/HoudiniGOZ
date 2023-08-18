@@ -1,0 +1,12 @@
+NAME			=	"Cinema 4D"
+GOZ_VERSION		=	1
+EXTENSION		=	".GoZ"
+TAMPLATE		=	"GoZ Complete Binary.GoZ"
+LOCATE_COMMAND	=   "GoZLocateCinema4D.bat"
+INIT_COMMAND	=	"GoZInitCinema4D.exe"
+EDIT_COMMAND	=	"GoZBrushToCinema4D.exe"
+
+EXPORT_FLIP_X			=	TRUE
+EXPORT_FLIP_Y			=	TRUE
+IMPORT_FLIP_X			=	TRUE
+IMPORT_FLIP_Y			=	TRUE

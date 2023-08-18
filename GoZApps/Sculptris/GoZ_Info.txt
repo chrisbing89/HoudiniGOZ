@@ -1,0 +1,6 @@
+NAME			=	"Sculptris"
+GOZ_VERSION		=	1
+EXTENSION		=	".GoZ"
+TAMPLATE		=	"GoZ Complete Binary.GoZ"
+LOCATE_COMMAND	=	"GoZLocateSculptris.bat"
+EDIT_COMMAND	=	"GoZBrushToSculptris.exe"

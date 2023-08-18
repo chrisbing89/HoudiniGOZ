@@ -1,0 +1,13 @@
+NAME			=	"Maya"
+GOZ_VERSION		=	1
+EXTENSION		=	".GoZ"
+TAMPLATE		=	"GoZ Complete Binary.GoZ"
+LOCATE_COMMAND	=   "GoZLocateMaya.bat"
+INIT_COMMAND	=	"GoZInitMaya.exe"
+EDIT_COMMAND	=	"GoZBrushToMaya.exe"
+
+EXPORT_FLIP_Y			=	TRUE
+EXPORT_FLIP_Z			=	TRUE
+IMPORT_FLIP_Y			=	TRUE
+IMPORT_FLIP_Z			=	TRUE
+NORMAL_MAP_FLIP_VERT	=	TRUE

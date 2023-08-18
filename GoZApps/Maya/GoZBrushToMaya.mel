@@ -1,0 +1,190 @@
+// ------------------------------------------
+//	GoZBrush to Maya script
+// ------------------------------------------
+
+//print("Starting GoZBrush to Maya script...\n");
+
+// ------------------------------------------
+// Global variables.
+global string $GoZPublicPath = "C:/Users/Public/Pixologic/";
+global string $GoZShapes[];
+global int $GoZSmoothValue = 2;
+global int $GoZSmoothLevel = 2;
+global int $GoZDebugON = 0;
+
+global int $GoZVisibleInReflectionsState = 1;
+global int $GoZVisibleInRefractionsState = 1;
+
+// ------------------------------------------
+// Debug purpose...
+global proc printDebug(string $text)
+{
+  global int $GoZDebugON;
+  if ($GoZDebugON)
+  {
+    print($text+"\n");
+  }
+}
+
+global proc displayAttrs(string $objectName)
+{
+  string $attrSN[] = `listAttr -shortNames $objectName`;
+  string $attrFN[] = `listAttr $objectName`;
+  string $attr;
+  int $index = 1;
+  for ($attr in $attrFN)
+  {
+	  print("Attr[" + $index + "] is " + $attr + "(" + $attrSN[$index-1] + ")\n");
+	  $index = $index+1;
+  }
+}
+
+// ------------------------------------------
+// Import a GoZ object from ZBrush.
+global proc importGoZObject(string $objectPath)
+{
+  global string $GoZPublicPath;
+  global string $GoZShapes[];
+  global int $GoZSmoothValue;
+  global int $GoZSmoothLevel;
+
+  global int $GoZVisibleInReflectionsState;
+  global int $GoZVisibleInRefractionsState;
+
+  string $objectFileName = $objectPath + ".GoZ"; /////////////////////".ma";
+  string $objectName = `basenameEx($objectFileName)`;
+  string $materialParts[];
+  string $smoothAttribPath;
+  string $smoothLevelAttribPath;
+  
+ // string $objGOZID="";   //++
+  
+// Requires the plugin gozMaya loaded.----------------  //++
+if (`pluginInfo -query -loaded -name "gozMaya"`==0){
+  loadPlugin "gozMaya"; 
+}
+//-----------------------------------------------------
+
+  if (`objExists $objectName`)
+  {
+    printDebug("    Object "+$objectName+" already exist!\n");
+    $GoZShapes = `listRelatives -s -path $objectName`;
+    $smoothAttribPath = $GoZShapes[0] + ".dsm";
+    $smoothLevelAttribPath = $GoZShapes[0] + ".smoothLevel";
+    if (`attributeQuery -node $GoZShapes[0] -ex "dsm"`)
+      $GoZSmoothValue = `getAttr $smoothAttribPath`;
+    if (`attributeQuery -node $GoZShapes[0] -ex "smoothLevel"`)
+      $GoZSmoothLevel = `getAttr $smoothLevelAttribPath`;
+
+    // Save visible in reflections/refractions attribs' values
+    $visibleInReflectionsAttribPath = $GoZShapes[0] + ".visibleInReflections";
+    if (`attributeQuery -node $GoZShapes[0] -ex "visibleInReflections"`)
+        $GoZVisibleInReflectionsState = `getAttr $visibleInReflectionsAttribPath`;
+
+    $visibleInRefractionsAttribPath = $GoZShapes[0] + ".visibleInRefractions";
+    if (`attributeQuery -node $GoZShapes[0] -ex "visibleInRefractions"`)
+        $GoZVisibleInRefractionsState = `getAttr $visibleInRefractionsAttribPath`;
+        
+  //if (`attributeQuery -node $GoZShapes[0] -ex "GoZBrushID"`)  //++
+    //  $objGOZID = `getAttr "GoZBrushID"`;
+
+
+    select -r $objectName;
+    $GoZShapes = `listRelatives -s -path $objectName`;
+    $materialParts = `listConnections -type shadingEngine $GoZShapes`;  
+    $GoZShapes= `listConnections -type blinn $materialParts`;			
+    if (`objExists $GoZShapes[0]`)
+    {
+      printDebug("    Delete Shape "+$GoZShapes[0]+"\n");
+      delete $GoZShapes[0];
+    }
+    if (`objExists $materialParts[0]`)
+    {
+      printDebug("    Delete Material "+$materialParts[0]+"\n");
+      delete $materialParts[0];
+    }
+    
+    printDebug(" Deleting object \n");
+    select -r $objectName;
+    delete;
+  }
+
+ 
+  gozMaya -i $objectPath;  ///////file -import $objectFileName; Replace here the gozMaya import plugin  //++
+  printDebug("    ... file imported!");
+  if (`objExists ZBrush_ToBeDeleted`)
+  {
+    printDebug("    Object exists to be deleted! ZBrush_ToBeDeleted \n");
+    if (`attributeQuery -node ZBrush_ToBeDeleted -ex "GoZBrushID"`)
+      copyAttr -values ZBrush_ToBeDeleted $objectName;
+    delete ZBrush_ToBeDeleted;
+  }
+  
+  select -r $objectName;
+  if (`attributeExists "GoZBrushID" $objectName` == 0){  //++  $GoZShapes[0]
+    //GoZBrushID is eqqual to object name 
+    addAttr -ln "GoZBrushID"  -dt "string";  
+    string $atName = $objectName + ".GoZBrushID";
+    setAttr -type "string" $atName $objectName; 
+  }
+
+  $GoZShapes = `listRelatives -s -path $objectName`;
+  $smoothAttribPath = $GoZShapes[0]+ ".dsm";
+  $smoothLevelAttribPath = $GoZShapes[0]+ ".smoothLevel";
+  $GoZSmoothValue = 0;
+  setAttr $smoothAttribPath $GoZSmoothValue;
+  setAttr $smoothLevelAttribPath $GoZSmoothLevel;
+
+  // select -r $objectName;
+  // string $edg[] = `ls -sl`;
+  // polySoftEdge -a 180 -ch 1 ($edg[0]+".e[*]");
+
+    $visibleInReflectionsAttribPath = $GoZShapes[0] + ".visibleInReflections";
+    if (`attributeQuery -node $GoZShapes[0] -ex "visibleInReflections"`)
+        setAttr $visibleInReflectionsAttribPath $GoZVisibleInReflectionsState;
+
+    $visibleInRefractionsAttribPath = $GoZShapes[0] + ".visibleInRefractions";
+    if (`attributeQuery -node $GoZShapes[0] -ex "visibleInRefractions"`)
+        setAttr $visibleInRefractionsAttribPath $GoZVisibleInRefractionsState;
+
+  select -r $objectName;
+}
+
+
+// ------------------------------------------
+// GoZBrushToMaya requires Mental Ray plugin.  //++
+//if (`pluginInfo -query -loaded -name "Mayatomr"`==0) {
+// loadPlugin "Mayatomr" ;   
+//  setCurrentRenderer mentalRay;
+//}
+
+// ------------------------------------------
+// Import one or several meshes from ZBrush...
+printDebug("GoZBrush >>> Maya");
+string $objectListFile = $GoZPublicPath + "GoZBrush/GoZ_ObjectList.txt";
+string $fileContent;
+string $objectPathArray[];
+string $objectPath;
+int $objectCount;
+int $fileId;
+$fileId = `fopen $objectListFile "r"`;
+$fileContent = `fread $fileId $fileContent`;
+while (!`feof($fileId)`)
+{
+	string $nextPart;
+	$nextPart = `fread $fileId $nextPart`;
+	$fileContent = $fileContent + $nextPart;
+}
+fclose $fileId;
+$objectCount = `tokenize $fileContent "\n\r" $objectPathArray`;
+for ($objectPath in $objectPathArray)
+{
+  printDebug("  Reading object " + $objectPath + " ...");
+  importGoZObject($objectPath);
+}
+
+// Clears the GoZ objects list.
+$fileId = `fopen $objectListFile "w"`;
+fclose $fileId;
+
+//print("Ending GoZBrush to Maya script...\n");

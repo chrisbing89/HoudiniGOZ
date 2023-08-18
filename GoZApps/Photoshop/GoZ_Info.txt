@@ -1,0 +1,7 @@
+NAME			=	"Photoshop"
+GOZ_VERSION		=	1
+EXTENSION		=	".GoZ"
+TAMPLATE		=	"GoZ Complete Binary.GoZ"
+LOCATE_COMMAND	=   "GoZLocatePhotoshop.bat"
+INIT_COMMAND	=	"GoZInitPhotoshop.exe"
+EDIT_COMMAND	=	"GoZBrushToPhotoshop.exe"
