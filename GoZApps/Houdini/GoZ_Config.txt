@@ -1,1 +1,1 @@
-PATH = "E:/Houdini/bin/houdini.exe"
+PATH = "C:\Program Files\Side Effects Software\Houdini 21.0.440\bin.houdini.exe"
