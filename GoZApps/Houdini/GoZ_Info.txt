@@ -1,5 +1,5 @@
 NAME			=	"Houdini"
-GOZ_VERSION		=	1
+GOZ_VERSION		=	2
 EXTENSION		=	".GoZ"
 TAMPLATE		=	"GoZ Complete Binary.GoZ"
 LOCATE_COMMAND	=   "GoZLocateHoudini.bat"
